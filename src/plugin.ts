@@ -36,7 +36,7 @@ interface WebpackModule extends Webpack.Module {
   request: string;
 }
 
-class DependencyPackerPlugin implements Tapable.Plugin {
+export class DependencyPackerPlugin implements Tapable.Plugin {
 
   name: string = 'DependencyPackerPlugin';
 
