@@ -1,0 +1,15 @@
+#+TITLE: Dependency Packer Webpack Plugin
+
+Webpack plugin that packs dependencies for entrypoints individually.
+
+
+* Usage
+
+#+BEGIN_SRC javascript
+  const DependencyPackerPlugin = require('dependency-packer-webpack-plugin').DependencyPacker;
+
+    ...
+    plugins: [
+      new DependencyPackerPlugin()
+    ],
+#+END_SRC
