@@ -1,0 +1,20 @@
+{
+  "name": "dependency-packer-webpack-plugin",
+  "description": "Webpack plugin that packs dependencies for entrypoints individually",
+  "license": "MIT",
+  "author": "Martin Jesper Low Madsen <martin@martinjlowm.dk>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/martinjlowm/dependency-packer-webpack-plugin"
+  },
+  "version": "1.0.0",
+  "main": "dist/plugin.js",
+  "scripts": {
+    "build": "NODE_ENV=production tsc"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/tapable": "^1.0.4",
+    "@types/webpack": "^4.4.24"
+  }
+}
