@@ -38,15 +38,17 @@ interface WebpackModule extends Webpack.Module {
 
 export class DependencyPackerPlugin implements Tapable.Plugin {
 
+  installCommand: string;
   name: string = 'DependencyPackerPlugin';
 
-  // Define `apply` as its prototype method which is supplied with compiler as its argument
+  constructor(options) {
+    this.installCommand = options.installCommand || 'npm i';
+  }
+
   apply(compiler: Webpack.Compiler) {
     const { name: projectName } = require('./package.json');
-    const packageManager = 'yarn';
     const newDependencies = {};
 
-    // Specify the event hook to attach to
     compiler.hooks.compilation.tap(this.name, (compilation, params) => {
       compilation.hooks.finishModules.tap(this.name, (modules: WebpackModule[]) => {
         const dependencies = modules.filter(mod => !mod.rawRequest);
@@ -84,7 +86,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
 
         return new Promise((resolve, reject) => {
           console.info(`[${this.name}] » Installing packages for ${entryName}...`);
-          childProcess.exec(`${packageManager}`, { cwd: path.resolve(entryBundleDirectory) }, error => {
+          childProcess.exec(`${this.installCommand}`, { cwd: path.resolve(entryBundleDirectory) }, error => {
             if (error) {
               reject(error);
             }
