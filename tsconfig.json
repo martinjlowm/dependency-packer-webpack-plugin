@@ -1,29 +1,30 @@
 {
   "compileOnSave": false,
-  "noResolve": false,
-  "noImplicitAny": false,
-  "strictNullChecks": true,
   "compilerOptions": {
-    "target": "es2018",
-    "module": "commonjs",
     "allowJs": true,
-    "resolveJsonModule": true,
-    "jsx": "preserve",
-    "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
     "esModuleInterop": true,
+    "jsx": "preserve",
+    "lib": ["es6", "es2018"],
+    "module": "commonjs",
+    "moduleResolution": "node",
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "removeComments": false,
+    "outDir": "./dist",
     "preserveConstEnums": true,
-    "sourceMap": true,
+    "removeComments": false,
+    "resolveJsonModule": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
     "paths": {
       "*": ["src/*", "node_modules/*"]
     },
+    "sourceMap": true,
+    "target": "es2018",
     "types": ["node"],
-    "typeRoots": ["node_modules/@types"],
-    "lib": ["es6", "es2018"]
-  }
+    "typeRoots": ["node_modules/@types"]
+  },
+  "noImplicitAny": false,
+  "noResolve": false,
+  "strictNullChecks": true
 }

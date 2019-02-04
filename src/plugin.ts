@@ -1,12 +1,12 @@
 import * as childProcess from 'child_process';
 import * as fs from 'fs';
-import module = require('module');
+import Module = require('module');
 import * as path from 'path';
 
 import { Tapable } from 'tapable';
 import * as Webpack from 'webpack';
 
-const builtinModules = module.builtinModules || require('./builtin-modules').modules;
+const builtinModules = Module.builtinModules || require('./builtin-modules').modules;
 
 const findPackageJSON = dirPath => {
   const files = fs.readdirSync(dirPath);
@@ -38,15 +38,17 @@ interface WebpackModule extends Webpack.Module {
 
 export class DependencyPackerPlugin implements Tapable.Plugin {
 
+  cwd: string;
   installCommand: string;
   name: string = 'DependencyPackerPlugin';
 
   constructor(options) {
+    this.cwd = process.cwd();
     this.installCommand = options.installCommand || 'npm i';
   }
 
   apply(compiler: Webpack.Compiler) {
-    const { name: projectName } = require('./package.json');
+    const { name: projectName } = require(`${this.cwd}/package.json`);
     const newDependencies = {};
 
     compiler.hooks.compilation.tap(this.name, (compilation, params) => {
@@ -80,7 +82,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
           dependencies: newDependencies[compiler.options.entry[entryName]] || {},
         };
 
-        const entryBundleDirectory = `.webpack/${entryName}`;
+        const entryBundleDirectory = `${this.cwd}/.webpack/${entryName}`;
 
         fs.writeFileSync(`${entryBundleDirectory}/package.json`, JSON.stringify(entryPackage, null, 2));
 
@@ -98,7 +100,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
 
       await Promise.all(packaged);
 
-      console.info('[${this.name}] » Finished installing packages for all entry points.');
+      console.info(`[${this.name}] » Finished installing packages for all entry points.`);
     });
   }
 }
