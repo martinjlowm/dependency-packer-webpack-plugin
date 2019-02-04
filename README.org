@@ -8,8 +8,12 @@ Webpack plugin that packs dependencies for entrypoints individually.
 #+BEGIN_SRC javascript
   const DependencyPackerPlugin = require('dependency-packer-webpack-plugin').DependencyPackerPlugin;
 
+  module.exports = {
     ...
     plugins: [
-      new DependencyPackerPlugin()
+      new DependencyPackerPlugin({
+        installCommand: 'npm i' // Optional
+      }),
     ],
+  };
 #+END_SRC
