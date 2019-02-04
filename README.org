@@ -12,7 +12,7 @@ Webpack plugin that packs dependencies for entrypoints individually.
     ...
     plugins: [
       new DependencyPackerPlugin({
-        installCommand: 'npm i' // Optional
+        packageManager: 'npm' // Optional
       }),
     ],
   };

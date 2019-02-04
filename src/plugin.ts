@@ -39,12 +39,12 @@ interface WebpackModule extends Webpack.Module {
 export class DependencyPackerPlugin implements Tapable.Plugin {
 
   cwd: string;
-  installCommand: string;
+  packageManager: string;
   name: string = 'DependencyPackerPlugin';
 
   constructor(options) {
     this.cwd = process.cwd();
-    this.installCommand = options.installCommand || 'npm i';
+    this.packageManager = options.packageManager || 'npm';
   }
 
   apply(compiler: Webpack.Compiler) {
@@ -76,19 +76,48 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     compiler.hooks.done.tapPromise(this.name, async stats => {
       const entryNames = Object.keys(compiler.options.entry);
 
-      const packaged = entryNames.map(entryName => {
-        const entryPackage = {
-          name: `${projectName}-${entryName}`,
-          dependencies: newDependencies[compiler.options.entry[entryName]] || {},
-        };
+      const packaged = entryNames.map(async entryName => {
 
         const entryBundleDirectory = `${this.cwd}/.webpack/${entryName}`;
+
+        let dependencies = newDependencies[compiler.options.entry[entryName]] || {};
+        const peerDependenciesInstallations = Object.keys(dependencies).map(async pkg => {
+          const version = dependencies[pkg];
+
+          const result = await new Promise<string>((resolve, reject) => {
+            childProcess.exec(`${this.packageManager} info ${pkg}@${version} peerDependencies --json`, {
+              cwd: path.resolve(entryBundleDirectory)
+            }, (error, stdout) => {
+              if (error) {
+                reject(error);
+              }
+
+              resolve(stdout);
+            });
+          });
+
+          let peerDependencies;
+          try {
+            peerDependencies = JSON.parse(result);
+          } catch (error) {
+            peerDependencies = {};
+          }
+
+          dependencies = { ...dependencies, ...peerDependencies };
+        });
+
+        await Promise.all(peerDependenciesInstallations);
+
+        const entryPackage = {
+          name: `${projectName}-${entryName}`,
+          dependencies,
+        };
 
         fs.writeFileSync(`${entryBundleDirectory}/package.json`, JSON.stringify(entryPackage, null, 2));
 
         return new Promise((resolve, reject) => {
           console.info(`[${this.name}] » Installing packages for ${entryName}...`);
-          childProcess.exec(`${this.installCommand}`, { cwd: path.resolve(entryBundleDirectory) }, error => {
+          childProcess.exec(`${this.packageManager} install`, { cwd: path.resolve(entryBundleDirectory) }, error => {
             if (error) {
               reject(error);
             }
