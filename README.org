@@ -17,3 +17,23 @@ Webpack plugin that packs dependencies for entrypoints individually.
     ],
   };
 #+END_SRC
+
+* Development
+
+NPM:
+
+#+BEGIN_SRC bash
+  npm run build
+  npm link
+  cd <project-that-uses-this-plugin>
+  npm link dependency-packer-webpack-plugin
+#+END_SRC
+
+Yarn:
+
+#+BEGIN_SRC bash
+  yarn build
+  yarn link
+  cd <project-that-uses-this-plugin>
+  yarn link dependency-packer-webpack-plugin
+#+END_SRC
