@@ -1,14 +1,26 @@
 #+TITLE: Dependency Packer Webpack Plugin
 
-Webpack plugin that packs dependencies for entrypoints individually.
+Webpack plugin that packs dependencies for entry points individually.
+
+This does a similar job to [[https://www.npmjs.com/package/serverless-webpack][Serverless Webpack]], but instead of solely inspecting
+=package.json= and depending on the Serverless project - this plugin utilizes
+the Webpack compiler to determine exactly what dependencies are required.
 
 
 * Usage
+
+First, install the plugin: ~[npm/yarn] install
+dependency-packer-webpack-plugin~, then reference and add it to your Webpack
+config:
 
 #+BEGIN_SRC javascript
   const DependencyPackerPlugin = require('dependency-packer-webpack-plugin').DependencyPackerPlugin;
 
   module.exports = {
+    ...
+    output: {
+      filename: '[name]/[name].js', // Required for multiple entry points
+    }
     ...
     plugins: [
       new DependencyPackerPlugin({
@@ -17,6 +29,10 @@ Webpack plugin that packs dependencies for entrypoints individually.
     ],
   };
 #+END_SRC
+
+For multiple entry points, each bundle must be output to its own directory to
+avoid conflicts during installation of dependencies. To do so, also include the
+=config.output.filename= in the example above.
 
 * Development
 
