@@ -52,8 +52,10 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     const { name: projectName } = require(`${this.cwd}/package.json`);
     const newDependencies = {};
 
-    if (!compiler.options.output.filename.includes('/')) {
-      console.warn(`[${this.name}] » Entry points must be written to ` +
+    const entryNames = Object.keys(compiler.options.entry);
+
+    if (entryNames.length > 1 && !compiler.options.output.filename.includes('/')) {
+      console.warn(`[${this.name}] » Multiple entry points must be written to ` +
                    `separate directories to avoid conflicts, ` +
                    `e.g.: "config.output.filename: '[name]/[name].js'"`);
       return;
@@ -92,8 +94,6 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     });
 
     compiler.hooks.done.tapPromise(this.name, async stats => {
-      const entryNames = Object.keys(compiler.options.entry);
-
       const outputDirectory = compiler.options.output.path;
       const packaged = entryNames.map(async entryName => {
         const [,entryOutput] = compiler.options.output.filename
