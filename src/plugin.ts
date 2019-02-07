@@ -52,6 +52,13 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     const { name: projectName } = require(`${this.cwd}/package.json`);
     const newDependencies = {};
 
+    if (!compiler.options.output.filename.includes('/')) {
+      console.warn(`[${this.name}] » Entry points must be written to ` +
+                   `separate directories to avoid conflicts, ` +
+                   `e.g.: "config.output.filename: '[name]/[name].js'"`);
+      return;
+    }
+
     compiler.hooks.compilation.tap(this.name, (compilation, params) => {
       compilation.hooks.finishModules.tap(this.name, (modules: WebpackModule[]) => {
         const dependentModules = modules.filter(mod => !mod.rawRequest);
@@ -87,14 +94,17 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     compiler.hooks.done.tapPromise(this.name, async stats => {
       const entryNames = Object.keys(compiler.options.entry);
 
+      const outputDirectory = compiler.options.output.path;
       const packaged = entryNames.map(async entryName => {
+        const [,entryOutput] = compiler.options.output.filename
+          .replace(/\[name\]/g, entryName)
+          .match(/^(.+)\/.*$/);
 
-        const entryBundleDirectory = `${this.cwd}/.webpack/${entryName}`;
+        const entryBundleDirectory = `${outputDirectory}/${entryOutput}`;
 
         let dependencies = newDependencies[compiler.options.entry[entryName]] || {};
         const peerDependenciesInstallations = Object.keys(dependencies).map(async pkg => {
-          let version = dependencies[pkg];
-          [,version] = version.match(/^(?:\^|~)?(.+)/);
+          const [,version] = dependencies[pkg].match(/^(?:\^|~)?(.+)/);
 
           if (semver.valid(version)) {
             const result = await new Promise<string>((resolve, reject) => {

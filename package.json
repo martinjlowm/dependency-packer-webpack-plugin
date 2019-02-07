@@ -18,7 +18,7 @@
     "build": "NODE_ENV=production tsc --declaration",
     "prepublish": "yarn build && pandoc README.org -o README.md",
     "postpublish": "rm -r README.md dist/",
-    "test": "yarn webpack --config test/webpack.config.js"
+    "test": "(cd test && yarn && yarn webpack)"
   },
   "dependencies": {
     "semver": "^5.6.0"
@@ -27,9 +27,6 @@
     "@types/tapable": "^1.0.4",
     "@types/webpack": "^4.4.24",
     "ts-node": "^8.0.2",
-    "typescript": "^3.3.1",
-    "webpack": "^4.29.3",
-    "webpack-cli": "^3.2.3",
-    "webpack-node-externals": "^1.7.2"
+    "typescript": "^3.3.1"
   }
 }

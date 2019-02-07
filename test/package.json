@@ -1,0 +1,20 @@
+{
+  "name": "dependency-packer-webpack-plugin-tests",
+  "description": "Tests for dependency-packer-webpack-plugin",
+  "license": "MIT",
+  "author": "Martin Jesper Low Madsen <martin@martinjlowm.dk>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/martinjlowm/dependency-packer-webpack-plugin"
+  },
+  "dependencies": {
+    "amazon-dax-client": "^1.2.0",
+    "aws-sdk": "^2.398.0",
+    "semver": "^5.6.0",
+    "source-map-support": "^0.5.10"
+  },
+  "devDependencies": {
+    "webpack": "^4.29.3",
+    "webpack-cli": "^3.2.3"
+  }
+}
