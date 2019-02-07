@@ -16,7 +16,8 @@
   "main": "dist/plugin.js",
   "scripts": {
     "build": "NODE_ENV=production tsc --declaration",
-    "prepublish": "build && pandoc README.org -o README.md",
+    "prepublish": "yarn build && pandoc README.org -o README.md",
+    "postpublish": "rm -r README.md dist/",
     "test": "yarn webpack --config test/webpack.config.js"
   },
   "dependencies": {
