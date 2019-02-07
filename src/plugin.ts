@@ -2,6 +2,7 @@ import * as childProcess from 'child_process';
 import * as fs from 'fs';
 import Module = require('module');
 import * as path from 'path';
+import semver = require('semver');
 
 import { Tapable } from 'tapable';
 import * as Webpack from 'webpack';
@@ -53,9 +54,9 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
 
     compiler.hooks.compilation.tap(this.name, (compilation, params) => {
       compilation.hooks.finishModules.tap(this.name, (modules: WebpackModule[]) => {
-        const dependencies = modules.filter(mod => !mod.rawRequest);
+        const dependentModules = modules.filter(mod => !mod.rawRequest);
 
-        dependencies.forEach(mod => {
+        dependentModules.forEach(mod => {
           const issuer = mod.issuer;
           if (issuer) {
             const { name, dependencies } = findPackageJSON(mod.issuer.context);
@@ -63,9 +64,19 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
             if (!builtinModules.find(builtInModule => builtInModule === mod.request)) {
               const entryPoints = getEntryPoints(mod);
 
+              let moduleName = mod.request;
+              while (!dependencies[moduleName]) {
+                moduleName = moduleName.split('/').slice(0, -1).join('/');
+              }
+
+              if (!dependencies[moduleName]) {
+                console.warn(`[${this.name}] » ${mod.request} was requested, but is not listed in dependencies! Skipping...`);
+                return;
+              }
+
               entryPoints.forEach(entryPoint => {
                 newDependencies[entryPoint] = newDependencies[entryPoint] || {};
-                newDependencies[entryPoint][mod.request] = dependencies[mod.request];
+                newDependencies[entryPoint][moduleName] = dependencies[moduleName];
               });
             }
           }
@@ -82,28 +93,31 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
 
         let dependencies = newDependencies[compiler.options.entry[entryName]] || {};
         const peerDependenciesInstallations = Object.keys(dependencies).map(async pkg => {
-          const version = dependencies[pkg];
+          let version = dependencies[pkg];
+          [,version] = version.match(/^(?:\^|~)?(.+)/);
 
-          const result = await new Promise<string>((resolve, reject) => {
-            childProcess.exec(`${this.packageManager} info ${pkg}@${version} peerDependencies --json`, {
-              cwd: path.resolve(entryBundleDirectory)
-            }, (error, stdout) => {
-              if (error) {
-                reject(error);
-              }
+          if (semver.valid(version)) {
+            const result = await new Promise<string>((resolve, reject) => {
+              childProcess.exec(`${this.packageManager} info ${pkg}@${version} peerDependencies --json`, {
+                cwd: path.resolve(entryBundleDirectory)
+              }, (error, stdout) => {
+                if (error) {
+                  reject(error);
+                }
 
-              resolve(stdout);
+                resolve(stdout);
+              });
             });
-          });
 
-          let peerDependencies;
-          try {
-            peerDependencies = JSON.parse(result);
-          } catch (error) {
-            peerDependencies = {};
+            let peerDependencies;
+            try {
+              peerDependencies = JSON.parse(result);
+            } catch (error) {
+              peerDependencies = {};
+            }
+
+            dependencies = { ...dependencies, ...peerDependencies };
           }
-
-          dependencies = { ...dependencies, ...peerDependencies };
         });
 
         await Promise.all(peerDependenciesInstallations);

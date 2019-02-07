@@ -7,16 +7,28 @@
     "type": "git",
     "url": "https://github.com/martinjlowm/dependency-packer-webpack-plugin"
   },
-  "version": "1.0.0",
+  "files": [
+    "README.md",
+    "dist",
+    "package.json"
+  ],
+  "version": "0.0.1",
   "main": "dist/plugin.js",
   "scripts": {
-    "build": "NODE_ENV=production tsc"
+    "build": "NODE_ENV=production tsc --declaration",
+    "prepublish": "build && pandoc README.org -o README.md",
+    "test": "yarn webpack --config test/webpack.config.js"
   },
-  "dependencies": {},
+  "dependencies": {
+    "semver": "^5.6.0"
+  },
   "devDependencies": {
     "@types/tapable": "^1.0.4",
     "@types/webpack": "^4.4.24",
     "ts-node": "^8.0.2",
-    "typescript": "^3.3.1"
+    "typescript": "^3.3.1",
+    "webpack": "^4.29.3",
+    "webpack-cli": "^3.2.3",
+    "webpack-node-externals": "^1.7.2"
   }
 }
