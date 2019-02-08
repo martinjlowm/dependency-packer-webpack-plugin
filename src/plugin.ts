@@ -74,7 +74,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
               const entryPoints = getEntryPoints(mod);
 
               let moduleName = mod.request;
-              while (!dependencies[moduleName]) {
+              while (moduleName && !dependencies[moduleName]) {
                 moduleName = moduleName.split('/').slice(0, -1).join('/');
               }
 
