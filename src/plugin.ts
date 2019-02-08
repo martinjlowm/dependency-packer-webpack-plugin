@@ -48,16 +48,28 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
   outputDirectory: string;
   outputFilenameTemplate: string;
   dependencies: { [entryName: string]: { [packageName: string]: string } } = {};
+  run: boolean;
 
   constructor(options) {
     this.cwd = process.cwd();
     this.packageManager = options.packageManager || 'npm';
-
-    this.onCompilationFinishModules = this.onCompilationFinishModules.bind(this);
-    this.onDone = this.onDone.bind(this);
   }
 
-  onCompilationFinishModules(modules) {
+  private onAfterPlugins = (compiler) => {
+    // Return silently if outputFileSystem is anything other than the default
+    // NodeOutputFileSystem.
+    this.run = compiler.outputFileSystem.constructor.name === 'NodeOutputFileSystem';
+    if (!this.run) {
+      console.info(`[${this.name}] ` +
+                   `» Dependency packing only works for NodeOutputFileSystem.`);
+    }
+  }
+
+  private onCompilationFinishModules = (modules) => {
+    if (!this.run) {
+      return;
+    }
+
     const dependentModules = modules.filter(mod => !mod.rawRequest);
 
     dependentModules.forEach(mod => {
@@ -87,7 +99,11 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     });
   }
 
-  async onDone(stats) {
+  private onDone = async (stats) => {
+    if (!this.run) {
+      return;
+    }
+
     const packaged = Object.keys(this.entries).map(async entryName => {
       const [,entryOutput] = this.outputFilenameTemplate
         .replace(/\[name\]/g, entryName)
@@ -182,15 +198,11 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     this.outputFilenameTemplate = compiler.options.output.filename;
     this.outputDirectory = compiler.options.output.path;
 
-    // Return silently if outputFileSystem is anything other than the default
-    // NodeOutputFileSystem.
-    if (compiler.outputFileSystem.constructor.name !== 'NodeOutputFileSystem') {
-      console.info(`[${this.name}] ` +
-                   `» Dependency packing only works for NodeOutputFileSystem.`);
-      return;
-    }
+
+
 
     ({ name: this.projectName } = require(`${this.cwd}/package.json`));
+
 
     if (Object.keys(this.entries).length > 1 &&
         !compiler.options.output.filename.includes('/')) {
@@ -200,6 +212,9 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
                    `e.g.: "config.output.filename: '[name]/[name].js'"`);
       return;
     }
+
+    // Hooks
+    compiler.hooks.afterPlugins.tap(this.name, this.onAfterPlugins);
 
     compiler.hooks.compilation.tap(this.name, (compilation) => {
       compilation.hooks.finishModules.tap(
