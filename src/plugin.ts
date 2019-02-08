@@ -55,9 +55,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     this.packageManager = options.packageManager || 'npm';
   }
 
-  private onAfterPlugins = (compiler) => {
-    // Return silently if outputFileSystem is anything other than the default
-    // NodeOutputFileSystem.
+  private onBeforeRun = async (compiler) => {
     this.run = compiler.outputFileSystem.constructor.name === 'NodeOutputFileSystem';
     if (!this.run) {
       console.info(`[${this.name}] ` +
@@ -214,7 +212,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     }
 
     // Hooks
-    compiler.hooks.afterPlugins.tap(this.name, this.onAfterPlugins);
+    compiler.hooks.beforeRun.tapPromise(this.name, this.onBeforeRun);
 
     compiler.hooks.compilation.tap(this.name, (compilation) => {
       compilation.hooks.finishModules.tap(
