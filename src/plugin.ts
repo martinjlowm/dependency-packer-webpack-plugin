@@ -41,6 +41,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
 
   cwd: string;
   packageManager: string;
+  blacklist: Array<string | RegExp>;
   name: string = 'DependencyPackerPlugin';
 
   projectName: string;
@@ -53,6 +54,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
   constructor(options) {
     this.cwd = process.cwd();
     this.packageManager = options.packageManager || 'npm';
+    this.blacklist = options.blacklist || [];
   }
 
   private onBeforeRun = async (compiler) => {
@@ -85,6 +87,11 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
 
           if (!dependencies[moduleName]) {
             console.warn(`[${this.name}] » ${mod.request} was requested, but is not listed in dependencies! Skipping...`);
+            return;
+          }
+
+          if (this.blacklist.some(blacklisted => !!moduleName.match(blacklisted))) {
+            console.info(`[${this.name}] » ${moduleName} is blacklisted. Skipping...`);
             return;
           }
 

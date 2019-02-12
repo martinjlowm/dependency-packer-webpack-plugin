@@ -16,6 +16,6 @@ module.exports = {
     path: path.resolve(__dirname, '.webpack'),
   },
   plugins: [
-    new DependencyPackerPlugin({ packageManager: 'yarn' }),
+    new DependencyPackerPlugin({ packageManager: 'yarn', blacklist: ['aws-sdk'] }),
   ]
 };
