@@ -24,8 +24,8 @@ config:
     ...
     plugins: [
       new DependencyPackerPlugin({
-        packageManager: 'npm'  // Optional
-        blacklist: [/aws-sdk/] // Optional
+        blacklist: [/aws-sdk/], // Optional
+        packageManager: 'npm'   // Optional
       }),
     ],
   };
