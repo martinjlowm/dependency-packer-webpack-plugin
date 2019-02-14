@@ -143,11 +143,12 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
           try {
             let type;
             ({ type, ...peerDependencies } = JSON.parse(result));
-          } catch (error) {
-            peerDependencies = {};
-          }
+            if (type) {
+              peerDependencies = peerDependencies.data;
+            }
+          } catch (_) { }
 
-          dependencies = { ...dependencies, ...peerDependencies };
+          dependencies = { ...dependencies, ...(peerDependencies || {}) };
         }
       });
 
