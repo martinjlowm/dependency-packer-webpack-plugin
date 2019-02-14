@@ -209,11 +209,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     this.outputFilenameTemplate = compiler.options.output.filename;
     this.outputDirectory = compiler.options.output.path;
 
-
-
-
     ({ name: this.projectName } = require(`${this.cwd}/package.json`));
-
 
     if (Object.keys(this.entries).length > 1 &&
         !compiler.options.output.filename.includes('/')) {
