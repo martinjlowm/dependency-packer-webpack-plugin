@@ -18,10 +18,16 @@ const findPackageJSON = dirPath => {
   }
 };
 
-const getEntryPoints = (module, entryPoints = new Set([])) => {
+const getEntryPoints = (module, entryPoints = new Set([]), visitedFiles = {}) => {
+  visitedFiles[module.userRequest] = true;
+
   module.reasons.forEach(reason => {
     if (reason.module) {
-      getEntryPoints(reason.module, entryPoints);
+      if (visitedFiles[reason.module.userRequest]) {
+        return;
+      }
+
+      getEntryPoints(reason.module, entryPoints, visitedFiles);
     } else {
       entryPoints.add(module.rawRequest);
     }

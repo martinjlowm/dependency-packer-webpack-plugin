@@ -18,7 +18,7 @@
     "build": "NODE_ENV=production tsc --declaration",
     "prepublish": "yarn build && pandoc README.org -o README.md",
     "postpublish": "rm -rf README.md dist/",
-    "test": "(cd test && rm -rf .webpack && yarn && yarn webpack)"
+    "test": "yarn build && (cd test && rm -rf .webpack && yarn && yarn webpack)"
   },
   "dependencies": {
     "semver": "^5.6.0"
