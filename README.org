@@ -1,5 +1,7 @@
 #+TITLE: Dependency Packer Webpack Plugin
 
+[[https://travis-ci.com/martinjlowm/dependency-packer-webpack-plugin][https://travis-ci.com/martinjlowm/dependency-packer-webpack-plugin.svg?branch=master]]
+
 Webpack plugin that packs dependencies for entry points individually.
 
 This does a similar job to [[https://www.npmjs.com/package/serverless-webpack][Serverless Webpack]], but instead of solely inspecting
