@@ -17,7 +17,7 @@
   "scripts": {
     "build": "NODE_ENV=production tsc --declaration",
     "postpublish": "rm -rf README.md dist/",
-    "prepublishOnly": "yarn build && pandoc README.org -o README.md",
+    "prepublishOnly": "yarn build && pandoc README.org -t markdown | sed -E 's/^\[<([^>]+)>\]\(([^\)]+)\)$/[![Build Status](\1)](\2)/g' > README.md",
     "test": "yarn build && mocha -r ts-node/register -r tsconfig-paths/register test/**/*.spec.ts",
     "test:prepare": "(cd test && yarn)"
   },
