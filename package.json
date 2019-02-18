@@ -16,7 +16,7 @@
   "main": "dist/plugin.js",
   "scripts": {
     "build": "NODE_ENV=production tsc --declaration",
-    "prepublish": "yarn build && pandoc README.org -o README.md",
+    "prepublishOnly": "yarn build && pandoc README.org -o README.md",
     "postpublish": "rm -rf README.md dist/",
     "test": "yarn build && mocha -r ts-node/register -r tsconfig-paths/register test/**/*.spec.ts"
   },
