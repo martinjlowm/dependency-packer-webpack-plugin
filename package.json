@@ -12,7 +12,7 @@
     "dist",
     "package.json"
   ],
-  "version": "0.0.11",
+  "version": "0.0.12",
   "main": "dist/plugin.js",
   "scripts": {
     "build": "NODE_ENV=production tsc --declaration",
