@@ -2,11 +2,27 @@
 
 [[https://travis-ci.com/martinjlowm/dependency-packer-webpack-plugin][https://travis-ci.com/martinjlowm/dependency-packer-webpack-plugin.svg?branch=master]]
 
-Webpack plugin that packs dependencies for entry points individually.
+A Webpack plugin that automatically packs dependencies for entry points
+individually for Node projects.
 
-This does a similar job to [[https://www.npmjs.com/package/serverless-webpack][Serverless Webpack]], but instead of solely inspecting
-=package.json= and depending on the Serverless project - this plugin utilizes
-the Webpack compiler to determine exactly what dependencies are required.
+This does a similar job to
+[[https://www.npmjs.com/package/serverless-webpack][Serverless Webpack]], but
+instead of solely inspecting the project's =package.json= (and being dependent
+on the Serverless project) - this plugin utilizes the Webpack compiler's module
+hooks to determine exactly what dependencies are required.
+
+This works perfectly with [[https://www.npmjs.com/package/aws-cdk][aws-cdk]]
+(and presumably similar projects), enabling direct asset references to the
+bundle:
+
+#+BEGIN_SRC javascript
+  const fun = new lambda.Function(this, 'lambdaFunction', {
+    functionName: 'lambdaFunction',
+    runtime: lambda.Runtime.NodeJS810,
+    handler: 'fun.handler',                  // <-
+    code: lambda.Code.asset('.webpack/fun'), // <-
+  });
+#+END_SRC
 
 
 * Usage
@@ -39,20 +55,19 @@ avoid conflicts during installation of dependencies. To do so, also include the
 
 * Development
 
-NPM:
+Use NPM/Yarn links to easily integrate the plugin in your project to test
+special cases that are not covered by the unit tests.
 
 #+BEGIN_SRC bash
-  npm run build
-  npm link
+  [npm run/yarn] build
+  [npm/yarn] link
   cd <project-that-uses-this-plugin>
-  npm link dependency-packer-webpack-plugin
+  [npm/yarn] link dependency-packer-webpack-plugin
 #+END_SRC
 
-Yarn:
+For convenience, the TypeScript config adds specific path prefixes to indicate
+relative paths of the =src=, =dist= and =test= directories:
 
-#+BEGIN_SRC bash
-  yarn build
-  yarn link
-  cd <project-that-uses-this-plugin>
-  yarn link dependency-packer-webpack-plugin
-#+END_SRC
+- =@=: src/
+- =#=: dist/
+- =$=: test/
