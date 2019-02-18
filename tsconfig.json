@@ -15,15 +15,14 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "paths": {
-      "*": ["src/*", "node_modules/*"]
+      "@/*": ["src/*"],
+      "#/*": ["dist/*"],
+      "$/*": ["test/*"]
     },
     "target": "es2018",
     "types": ["node"],
     "typeRoots": ["node_modules/@types"]
   },
-  "include": [
-    "./src"
-  ],
   "noImplicitAny": false,
   "noResolve": false,
   "strictNullChecks": true
