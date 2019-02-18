@@ -120,7 +120,15 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
         .replace(/\[name\]/g, entryName)
         .match(/^(.+)\/.*$/);
 
-      const entryBundleDirectory = `${this.outputDirectory}/${entryOutput}`;
+      const entryBundleDirectory = path.resolve(`${this.outputDirectory}/${entryOutput}`);
+
+      await new Promise((resolve, reject) => fs.stat(entryBundleDirectory, (error, stats) => {
+        if (error) {
+          reject(error);
+        }
+
+        resolve(stats);
+      }));
 
       let dependencies = this.dependencies[this.entries[entryName]] || {};
       const peerDependenciesInstallations = Object.keys(dependencies).map(async pkg => {
@@ -129,7 +137,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
         if (semver.valid(version)) {
           const result = await new Promise<string>((resolve, reject) => {
             childProcess.exec(`${this.packageManager} info ${pkg}@${version} peerDependencies --json`, {
-              cwd: path.resolve(entryBundleDirectory)
+              cwd: entryBundleDirectory
             }, (error, stdout) => {
               if (error) {
                 reject(error);
@@ -188,10 +196,12 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
       });
     });
 
-    await Promise.all(packaged);
+    try {
+      await Promise.all(packaged);
 
-    console.info(`[${this.name}] ` +
-                 `» Finished installing packages for all entry points.`);
+      console.info(`[${this.name}] ` +
+                   `» Finished installing packages for all entry points.`);
+    } catch (_) { }
   }
 
   apply(compiler: Webpack.Compiler) {
