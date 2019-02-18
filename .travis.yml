@@ -8,4 +8,7 @@
   before_cache: [
     "rm -rf node_modules/.cache"
   ],
+  before_script: [
+    "yarn test:prepare"
+  ],
 }
