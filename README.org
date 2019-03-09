@@ -36,6 +36,9 @@ config:
 
   module.exports = [{
     ...
+    entry: {
+      fun: 'fun.js',
+    },
     output: {
       filename: '[name].js',
       path: '.webpack/<entry-name>',
@@ -51,8 +54,8 @@ config:
 #+END_SRC
 
 For multiple entry points, each bundle must be output to its own directory to
-avoid conflicts during installation of dependencies. To do so, also include the
-=config.output.filename= in the example above.
+avoid conflicts during installation of dependencies. To do so, it's recommended
+to export a list of configs, one for each entry point.
 
 * Development
 
