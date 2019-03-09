@@ -1,4 +1,5 @@
 import * as childProcess from 'child_process';
+import fastJSONStringify = require('fast-json-stringify');
 import * as fs from 'fs';
 import Module = require('module');
 import * as path from 'path';
@@ -8,6 +9,24 @@ import { Tapable } from 'tapable';
 import * as Webpack from 'webpack';
 
 const builtinModules = Module.builtinModules || require('./builtin-modules').modules;
+const stringify = fastJSONStringify({
+  title: 'package.json',
+  type: 'object',
+  properties: {
+    name: {
+      type: 'string',
+    },
+    dependencies: {
+      type: 'object',
+      patternProperties: {
+        '^(?:@([^/]+?)[/])?([^/]+?)$': {
+          type: 'string',
+        }
+      }
+    },
+  },
+});
+
 
 const findPackageJSON = dirPath => {
   const files = fs.readdirSync(dirPath);
@@ -53,7 +72,6 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
   projectName: string;
   entries: string | string[] | Webpack.Entry | Webpack.EntryFunc;
   outputDirectory: string;
-  outputFilenameTemplate: string;
   dependencies: { [entryName: string]: { [packageName: string]: string } } = {};
   run: boolean;
 
@@ -66,8 +84,10 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
   private onBeforeRun = async (compiler) => {
     this.run = compiler.outputFileSystem.constructor.name === 'NodeOutputFileSystem';
     if (!this.run) {
-      console.info(`[${this.name}] ` +
-                   `» Dependency packing only works for NodeOutputFileSystem.`);
+      console.info(
+        `[${this.name}] ` +
+        `» Dependency packing only makes sense for NodeOutputFileSystem.`
+      );
     }
   }
 
@@ -110,19 +130,16 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     });
   }
 
-  private onDone = async (stats) => {
+  private onDone = async () => {
     if (!this.run) {
       return;
     }
 
+    let dependencies = {};
     const packaged = Object.keys(this.entries).map(async entryName => {
-      const [,entryOutput] = this.outputFilenameTemplate
-        .replace(/\[name\]/g, entryName)
-        .match(/^(.+)\/.*$/);
+      const entryOutput = this.entries[entryName];
 
-      const entryBundleDirectory = path.resolve(`${this.outputDirectory}/${entryOutput}`);
-
-      await new Promise((resolve, reject) => fs.stat(entryBundleDirectory, (error, stats) => {
+      await new Promise((resolve, reject) => fs.stat(this.outputDirectory, (error, stats) => {
         if (error) {
           reject(error);
         }
@@ -130,14 +147,14 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
         resolve(stats);
       }));
 
-      let dependencies = this.dependencies[this.entries[entryName]] || {};
+      dependencies = { ...dependencies, ...(this.dependencies[this.entries[entryName]] || {}), };
       const peerDependenciesInstallations = Object.keys(dependencies).map(async pkg => {
-        const [,version] = dependencies[pkg].match(/^(?:\^|~)?(.+)/);
+        const [, version] = dependencies[pkg].match(/^(?:\^|~)?(.+)/);
 
         if (semver.valid(version)) {
           const result = await new Promise<string>((resolve, reject) => {
             childProcess.exec(`${this.packageManager} info ${pkg}@${version} peerDependencies --json`, {
-              cwd: entryBundleDirectory
+              cwd: this.outputDirectory
             }, (error, stdout) => {
               if (error) {
                 reject(error);
@@ -160,31 +177,37 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
         }
       });
 
-      await Promise.all(peerDependenciesInstallations);
+      return Promise.all(peerDependenciesInstallations);
+    });
 
-      const entryPackage = {
-        name: `${this.projectName}-${entryName}`,
-        dependencies,
-      };
+    await Promise.all(packaged);
 
-      new Promise((resolve, reject) => {
-        fs.writeFile(
-          `${entryBundleDirectory}/package.json`, JSON.stringify(entryPackage, null, 2),
-          (error) => {
-            if (error) {
-              reject(error);
-            }
+    const entryPackage = {
+      dependencies,
+    };
 
-            resolve();
-          });
-      })
+    await new Promise((resolve, reject) => {
+      fs.writeFile(
+        `${this.outputDirectory}/package.json`, stringify(entryPackage),
+        (error) => {
+          if (error) {
+            reject(error);
+          }
 
-      console.info(`[${this.name}] ` +
-                   `» Installing packages for ${entryName}...`);
-      return new Promise((resolve, reject) => {
+          resolve();
+        });
+    })
+
+    console.info(
+      `[${this.name}] ` +
+      `» Installing packages for \`${Object.keys(this.entries).join(', ')}'...`,
+    );
+
+    try {
+      await new Promise((resolve, reject) => {
         childProcess.exec(
           `${this.packageManager} install`, {
-            cwd: path.resolve(entryBundleDirectory),
+            cwd: path.resolve(this.outputDirectory),
           },
           (error) => {
             if (error) {
@@ -194,22 +217,22 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
             resolve();
           });
       });
-    });
 
-    try {
-      await Promise.all(packaged);
-
-      console.info(`[${this.name}] ` +
-                   `» Finished installing packages for all entry points.`);
+      console.info(
+        `[${this.name}] ` +
+        '» Finished installing packages.',
+      );
     } catch (_) { }
   }
 
   apply(compiler: Webpack.Compiler) {
     if (Array.isArray(compiler.options.entry) &&
-        compiler.options.entry.length &&
-        compiler.options.entry[0] === 'string') {
-      console.info(`[${this.name}] ` +
-                   `» The behavior of an entry as a string array has not yet been defined.`);
+      compiler.options.entry.length &&
+      compiler.options.entry[0] === 'string') {
+      console.info(
+        `[${this.name}] ` +
+        `» The behavior of an entry as a string array has not yet been defined.`,
+      );
       return;
     } else if (typeof compiler.options.entry === 'string') {
       this.entries = { output: compiler.options.entry };
@@ -217,19 +240,9 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
       this.entries = compiler.options.entry;
     }
 
-    this.outputFilenameTemplate = compiler.options.output.filename;
     this.outputDirectory = compiler.options.output.path;
 
     ({ name: this.projectName } = require(`${this.cwd}/package.json`));
-
-    if (Object.keys(this.entries).length > 1 &&
-        !compiler.options.output.filename.includes('/')) {
-      console.warn(`[${this.name}] ` +
-                   `» Multiple entry points must be written to ` +
-                   `separate directories to avoid conflicts, ` +
-                   `e.g.: "config.output.filename: '[name]/[name].js'"`);
-      return;
-    }
 
     // Hooks
     compiler.hooks.beforeRun.tapPromise(this.name, this.onBeforeRun);

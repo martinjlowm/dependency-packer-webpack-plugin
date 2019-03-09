@@ -13,6 +13,11 @@ const run = async (command) => {
         reject(error);
       }
 
+      if (process.env.VERBOSE) {
+        stdout && console.debug('[stdout]:', stdout);
+        stderr && console.debug('[stderr]:', stderr);
+      }
+
       resolve(stdout);
     });
   });
@@ -20,13 +25,15 @@ const run = async (command) => {
 
 describe('Dependency Packer', () => {
 
-  const webpackOutputPath = webpackConfig.output.path;
+  const [firstEntryConfig, secondEntryConfig] = webpackConfig;
 
   beforeEach(async () => {
-    await run(`rm -rf ${webpackOutputPath}`);
+    await run(`rm -rf .webpack`);
   });
 
-  it('Packs all dependencies as demanded in the bundle', async () => {
+  it('Packs all dependencies for all entries as demanded in the bundle', async () => {
+    const outputPath = firstEntryConfig.output.path;
+
     await run('yarn webpack');
 
     await new Promise((resolve, reject) => {
@@ -39,20 +46,22 @@ describe('Dependency Packer', () => {
       });
     });
 
-    const [entryName] = Object.keys(webpackConfig.entry);
-    const { dependencies } = await import(`${webpackOutputPath}/${entryName}/package.json`);
+    for (const config of webpackConfig) {
+      const [entryName] = Object.keys(config.entry);
+      const { dependencies } = await import(`${outputPath}/package.json`);
 
-    const dependencyPackerPlugin = webpackConfig.plugins.find((plugin) => plugin.name === 'DependencyPackerPlugin');
+      const dependencyPackerPlugin = firstEntryConfig.plugins.find((plugin) => plugin.name === 'DependencyPackerPlugin');
 
-    const dependenciesKeys = Object.keys(dependencies);
+      const dependenciesKeys = Object.keys(dependencies);
 
-    dependencyPackerPlugin.blacklist.forEach((mod) => {
-      expect(dependenciesKeys).not.to.include(mod);
-    });
-    expect(dependenciesKeys).not.to.include('fs');
+      dependencyPackerPlugin.blacklist.forEach((mod) => {
+        expect(dependenciesKeys).not.to.include(mod);
+      });
+      expect(dependenciesKeys).not.to.include('fs');
 
-    expect(dependenciesKeys).to.include('amazon-dax-client');
-    expect(dependenciesKeys).to.include('subscriptions-transport-ws');
+      expect(dependenciesKeys).to.include('amazon-dax-client');
+      expect(dependenciesKeys).to.include('subscriptions-transport-ws');
+    }
   }).timeout(0);
 
 });

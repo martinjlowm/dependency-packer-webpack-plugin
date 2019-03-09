@@ -34,19 +34,20 @@ config:
 #+BEGIN_SRC javascript
   const DependencyPackerPlugin = require('dependency-packer-webpack-plugin').DependencyPackerPlugin;
 
-  module.exports = {
+  module.exports = [{
     ...
     output: {
-      filename: '[name]/[name].js', // Required for multiple entry points
+      filename: '[name].js',
+      path: '.webpack/<entry-name>',
     }
     ...
     plugins: [
-      new DependencyPackerPlugin({
+      new DependencyPackerPlugin({ // Must be initialized per bundle
         blacklist: [/aws-sdk/], // Optional
         packageManager: 'npm'   // Optional
       }),
     ],
-  };
+  }]; // One config per entry point to initiate multiple compilers
 #+END_SRC
 
 For multiple entry points, each bundle must be output to its own directory to

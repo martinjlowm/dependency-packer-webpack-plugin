@@ -4,14 +4,15 @@ import nodeExternals = require('webpack-node-externals');
 
 import { DependencyPackerPlugin } from '../dist/plugin';
 
-export default {
+const entries = {
+  'simple-1': './entries/simple.ts',
+  'simple-2': './entries/simple.ts',
+};
+
+const baseConfig = {
   mode: 'development',
   target: 'node',
   devtool: 'source-map',
-
-  entry: {
-    'simple': './entries/simple.ts',
-  },
 
   resolve: {
     extensions: ['.ts', '.js', '.json'],
@@ -22,8 +23,7 @@ export default {
 
   output: {
     libraryTarget: 'commonjs',
-    filename: '[name]/[name].js',
-    path: path.resolve(__dirname, '.webpack'),
+    filename: '[name].js',
   },
 
   module: {
@@ -45,7 +45,22 @@ export default {
     ],
   },
 
-  plugins: [
-    new DependencyPackerPlugin({ packageManager: 'yarn', blacklist: ['aws-sdk'] }),
-  ]
+  plugins: [],
 };
+
+export default Object.keys(entries).map(entry => {
+  return {
+    ...baseConfig,
+    entry: {
+      [entry]: entries[entry],
+    },
+    output: {
+      ...baseConfig.output,
+      path: path.resolve(__dirname, '.webpack', entry),
+    },
+    plugins: [
+      ...baseConfig.plugins,
+      new DependencyPackerPlugin({ packageManager: 'yarn', blacklist: ['aws-sdk'] }),
+    ],
+  };
+});
