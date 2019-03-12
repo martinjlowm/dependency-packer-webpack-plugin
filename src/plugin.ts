@@ -139,13 +139,21 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     const packaged = Object.keys(this.entries).map(async entryName => {
       const entryOutput = this.entries[entryName];
 
-      await new Promise((resolve, reject) => fs.stat(this.outputDirectory, (error, stats) => {
-        if (error) {
-          reject(error);
-        }
+      try {
+        await new Promise((resolve, reject) => fs.stat(this.outputDirectory, (error, stats) => {
+          if (error) {
+            reject(error);
+          }
 
-        resolve(stats);
-      }));
+          resolve(stats);
+        }));
+      } catch (error) {
+        console.error(
+          `[${this.name}] ` +
+          `Webpack failed to generate output directory: ${error.message}`,
+        );
+        return;
+      }
 
       dependencies = { ...dependencies, ...(this.dependencies[this.entries[entryName]] || {}), };
       const peerDependenciesInstallations = Object.keys(dependencies).map(async pkg => {
