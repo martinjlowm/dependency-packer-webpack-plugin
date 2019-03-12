@@ -139,21 +139,13 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     const packaged = Object.keys(this.entries).map(async entryName => {
       const entryOutput = this.entries[entryName];
 
-      try {
-        await new Promise((resolve, reject) => fs.stat(this.outputDirectory, (error, stats) => {
-          if (error) {
-            reject(error);
-          }
+      await new Promise((resolve, reject) => fs.stat(this.outputDirectory, (error, stats) => {
+        if (error) {
+          reject(error);
+        }
 
-          resolve(stats);
-        }));
-      } catch (error) {
-        console.error(
-          `[${this.name}] ` +
-          `Webpack failed to generate output directory: ${error.message}`,
-        );
-        return;
-      }
+        resolve(stats);
+      }));
 
       dependencies = { ...dependencies, ...(this.dependencies[this.entries[entryName]] || {}), };
       const peerDependenciesInstallations = Object.keys(dependencies).map(async pkg => {
@@ -188,30 +180,31 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
       return Promise.all(peerDependenciesInstallations);
     });
 
-    await Promise.all(packaged);
-
-    const entryPackage = {
-      dependencies,
-    };
-
-    await new Promise((resolve, reject) => {
-      fs.writeFile(
-        `${this.outputDirectory}/package.json`, stringify(entryPackage),
-        (error) => {
-          if (error) {
-            reject(error);
-          }
-
-          resolve();
-        });
-    })
-
-    console.info(
-      `[${this.name}] ` +
-      `» Installing packages for \`${Object.keys(this.entries).join(', ')}'...`,
-    );
-
     try {
+      await Promise.all(packaged);
+
+      const entryPackage = {
+        dependencies,
+      };
+
+      await new Promise((resolve, reject) => {
+        fs.writeFile(
+          `${this.outputDirectory}/package.json`, stringify(entryPackage),
+          (error) => {
+            if (error) {
+              reject(error);
+            }
+
+            resolve();
+          });
+      })
+
+      console.info(
+        `[${this.name}] ` +
+          `» Installing packages for \`${Object.keys(this.entries).join(', ')}'...`,
+      );
+
+
       await new Promise((resolve, reject) => {
         childProcess.exec(
           `${this.packageManager} install`, {
@@ -228,9 +221,14 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
 
       console.info(
         `[${this.name}] ` +
-        '» Finished installing packages.',
+          '» Finished installing packages.',
       );
-    } catch (_) { }
+    } catch (error) {
+      console.error(
+        `[${this.name}] ` +
+        `! ${error.message}`,
+      );
+    }
   }
 
   apply(compiler: Webpack.Compiler) {
