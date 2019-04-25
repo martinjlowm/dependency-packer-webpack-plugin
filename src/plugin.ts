@@ -101,7 +101,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     dependentModules.forEach(mod => {
       const issuer = mod.issuer;
       if (issuer) {
-        const { name, dependencies } = findPackageJSON(mod.issuer.context);
+        const { name, dependencies = {} } = findPackageJSON(mod.issuer.context);
 
         if (!builtinModules.find(builtInModule => builtInModule === mod.request)) {
           const entryPoints = getEntryPoints(mod);
