@@ -228,6 +228,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
         `[${this.name}] ` +
         `! ${error.message}`,
       );
+      process.exit(1);
     }
   }
 
