@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
-    "baseUrl": ".",
+    "baseUrl": "..",
     "esModuleInterop": true,
     "jsx": "preserve",
     "lib": ["es6", "es2018"],
@@ -9,7 +9,6 @@
     "moduleResolution": "node",
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "outDir": "./dist",
     "preserveConstEnums": true,
     "removeComments": false,
     "resolveJsonModule": true,
@@ -23,7 +22,6 @@
     "types": ["node"],
     "typeRoots": ["node_modules/@types"]
   },
-  "include": ["src"],
   "noImplicitAny": false,
   "noResolve": false,
   "strictNullChecks": true

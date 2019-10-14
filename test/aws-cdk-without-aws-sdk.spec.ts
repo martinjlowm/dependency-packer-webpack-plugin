@@ -16,10 +16,15 @@ describe(exampleProject, async () => {
     await run('rm -rf .webpack', directory);
   });
 
-  it('Packs all dependencies for all entries as demanded in the bundle', async () => {
-    const config: webpack.Configuration = (await import(`${directory}/webpack.config`)).default; 
+  before(async function () {
+    this.timeout(0);
 
     await run('npm i', directory);
+  });
+
+  it('Packs all dependencies for all entries as required in the bundle', async () => {
+    const config: webpack.Configuration = (await import(`${directory}/webpack.config`)).default;
+
     await run('npm run build', directory);
 
     await new Promise((resolve, reject) => {

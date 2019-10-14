@@ -13,7 +13,13 @@ describe('Dependency Packer', () => {
     await run(`rm -rf .webpack`);
   });
 
-  it('Packs all dependencies for all entries as demanded in the bundle', async () => {
+  before(async function () {
+    this.timeout(0);
+
+    await run('npm i');
+  });
+
+  it('Packs all dependencies for all entries as required in the bundle', async () => {
     const webpackConfig: webpack.Configuration[] = (await import(`${__dirname}/webpack.config`)).default;
 
     const [firstEntryConfig] = webpackConfig;
