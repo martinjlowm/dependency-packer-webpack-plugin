@@ -3,7 +3,7 @@ import { TsconfigPathsPlugin } from 'tsconfig-paths-webpack-plugin';
 import nodeExternals from 'webpack-node-externals';
 import * as webpack from 'webpack';
 
-import { DependencyPackerPlugin } from '../../dist/plugin';
+import { DependencyPackerPlugin } from '../../src/plugin';
 
 const entries = {
   'simple-1': './src/entries/simple.ts',
