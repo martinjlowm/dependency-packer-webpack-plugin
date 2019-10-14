@@ -2,7 +2,7 @@ import * as path from 'path';
 import { TsconfigPathsPlugin } from 'tsconfig-paths-webpack-plugin';
 import nodeExternals = require('webpack-node-externals');
 
-import { DependencyPackerPlugin } from '../dist/plugin';
+import { DependencyPackerPlugin } from '../src/plugin';
 
 const entries = {
   'simple-1': './entries/simple.ts',

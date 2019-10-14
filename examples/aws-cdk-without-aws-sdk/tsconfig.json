@@ -9,15 +9,12 @@
     "moduleResolution": "node",
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "outDir": "./dist",
     "preserveConstEnums": true,
     "removeComments": false,
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "paths": {
-      "@/*": ["src/*"],
-      "#/*": ["dist/*"],
-      "$/*": ["test/*"]
+      "@/*": ["src/*"]
     },
     "target": "es2018",
     "types": ["node"],
