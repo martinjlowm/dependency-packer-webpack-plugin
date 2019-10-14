@@ -57,6 +57,8 @@ For multiple entry points, each bundle must be output to its own directory to
 avoid conflicts during installation of dependencies. To do so, it's recommended
 to export a list of configs, one for each entry point.
 
+For practical examples see ~examples/~.
+
 * Development
 
 Use NPM/Yarn links to easily integrate the plugin in your project to test
