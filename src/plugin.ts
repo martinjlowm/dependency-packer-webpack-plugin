@@ -96,7 +96,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
       return;
     }
 
-    const dependentModules = modules.filter(mod => !mod.rawRequest);
+    const dependentModules = modules.filter(mod => !mod.rawRequest && mod.request);
 
     dependentModules.forEach(mod => {
       const issuer = mod.issuer;
@@ -117,7 +117,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
           }
 
           if (this.blacklist.some(blacklisted => !!moduleName.match(blacklisted))) {
-            console.info(`[${this.name}] » ${moduleName} is blacklisted. Skipping...`);
+            console.info(`[${this.name}] » ${moduleName} (${mod.request}) is blacklisted. Skipping...`);
             return;
           }
 
