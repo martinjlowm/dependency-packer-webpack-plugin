@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
-    "baseUrl": "..",
+    "baseUrl": ".",
     "esModuleInterop": true,
     "jsx": "preserve",
     "lib": ["es6", "es2018"],
@@ -14,9 +14,7 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "paths": {
-      "@/*": ["src/*"],
-      "#/*": ["dist/*"],
-      "$/*": ["test/*"]
+      "@/*": ["src/*"]
     },
     "target": "es2018",
     "types": ["node"],

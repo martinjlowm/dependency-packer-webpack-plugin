@@ -7,29 +7,31 @@ import * as webpack from 'webpack';
 import { run } from '$/helpers/run';
 import * as Types from '$/types';
 
-describe('Dependency Packer', () => {
+describe('recursive-entry', () => {
+
+  const directory = path.resolve(__dirname, 'recursive-entry');
 
   beforeEach(async () => {
-    await run(`rm -rf .webpack`);
+    await run(`rm -rf .webpack`, directory);
   });
 
   before(async function () {
     this.timeout(0);
 
-    await run('npm i');
+    await run('npm i', directory);
   });
 
   it('Packs all dependencies for all entries as required in the bundle', async () => {
-    const webpackConfig: webpack.Configuration[] = (await import(`${__dirname}/webpack.config`)).default;
+    const webpackConfig: webpack.Configuration[] = (await import(`${directory}/webpack.config`)).default;
 
     const [firstEntryConfig] = webpackConfig;
 
     const outputPath = firstEntryConfig.output.path;
 
-    await run('yarn webpack');
+    await run('npx webpack', directory);
 
     await new Promise((resolve, reject) => {
-      fs.stat(path.resolve(__dirname, '.webpack'), (error, stats) => {
+      fs.stat(path.resolve(directory, '.webpack'), (error, stats) => {
         if (error) {
           reject(error);
         }

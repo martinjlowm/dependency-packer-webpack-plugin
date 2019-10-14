@@ -1,22 +1,23 @@
 import * as path from 'path';
 import { TsconfigPathsPlugin } from 'tsconfig-paths-webpack-plugin';
-import nodeExternals = require('webpack-node-externals');
+import nodeExternals from 'webpack-node-externals';
+import * as webpack from 'webpack';
 
-import { DependencyPackerPlugin } from '../src/plugin';
+import { DependencyPackerPlugin } from '../../dist/plugin';
 
 const entries = {
-  'simple-1': './entries/simple.ts',
-  'simple-2': './entries/simple.ts',
+  'simple-1': './src/entries/simple.ts',
+  'simple-2': './src/entries/simple.ts',
 };
 
-const baseConfig = {
+const baseConfig: webpack.Configuration = {
   mode: 'development',
   target: 'node',
   devtool: 'source-map',
 
   resolve: {
     extensions: ['.ts', '.js', '.json'],
-    plugins: [new TsconfigPathsPlugin({ configFile: `${__dirname}/../tsconfig.json` })],
+    plugins: [new TsconfigPathsPlugin()],
   },
 
   externals: [nodeExternals()],

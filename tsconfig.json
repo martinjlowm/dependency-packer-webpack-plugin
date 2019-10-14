@@ -23,7 +23,8 @@
     "types": ["node"],
     "typeRoots": ["node_modules/@types"]
   },
-  "include": ["src"],
+  "include": ["src", "test"],
+  "exclude": ["test/recursive-entry"],
   "noImplicitAny": false,
   "noResolve": false,
   "strictNullChecks": true
