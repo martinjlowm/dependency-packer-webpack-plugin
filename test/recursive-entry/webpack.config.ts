@@ -61,7 +61,7 @@ export default Object.keys(entries).map(entry => {
     },
     plugins: [
       ...baseConfig.plugins,
-      new DependencyPackerPlugin({ packageManager: 'yarn', blacklist: ['aws-sdk'] }),
+      new DependencyPackerPlugin({ blacklist: ['aws-sdk'] }),
     ],
   };
 });
