@@ -18,7 +18,8 @@
     "build": "NODE_ENV=production tsc --project tsconfig.publish.json",
     "postpublish": "rm -rf README.md dist/",
     "prepublishOnly": "npm run build && pandoc README.org -t markdown | sed -E 's/^\\[<([^>]+)>\\]\\(([^\\)]+)\\)$/[![Build Status](\\1)](\\2)/g' > README.md",
-    "test": "mocha -r ts-node/register -r tsconfig-paths/register test/**/*.spec.ts",
+    "test": "npm run test:prepare && mocha -r ts-node/register -r tsconfig-paths/register test/**/*.spec.ts",
+    "test:prepare": "npm run build && for ex in examples/*; do (cd $ex && npm i --no-save ../..); done",
     "test:verbose": "VERBOSE=true npm run test"
   },
   "dependencies": {

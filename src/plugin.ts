@@ -116,10 +116,13 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
 
           const packageJSONFiles = findPackageJSONFiles(mod.issuer.context);
 
-          while (moduleName && packageJSONFiles.every(({ dependencies = {} }) => {
+          let nextModuleName = moduleName;
+
+          while (nextModuleName && packageJSONFiles.every(({ dependencies = {} }) => {
             return !dependencies[moduleName];
           })) {
-            moduleName = moduleName.split('/').slice(0, -1).join('/');
+            nextModuleName = moduleName.split('/').slice(0, -1).join('/');
+            moduleName = nextModuleName || moduleName;
           }
 
           moduleName = moduleName || mod.request;
@@ -130,12 +133,16 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
               return;
             }
 
-            entryPoints.forEach(entryPoint => {
-              this.dependencies[entryPoint] = this.dependencies[entryPoint] || {};
-              this.dependencies[entryPoint][moduleName] = dependencies[moduleName];
-            });
+            const version = dependencies[moduleName];
 
-            break;
+            if (version) {
+              entryPoints.forEach(entryPoint => {
+                this.dependencies[entryPoint] = this.dependencies[entryPoint] || {};
+                this.dependencies[entryPoint][moduleName] = version;
+              });
+
+              break;
+            }
           }
 
           if (entryPoints.every(entryPoint => {
