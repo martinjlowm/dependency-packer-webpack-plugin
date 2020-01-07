@@ -1,18 +1,13 @@
-import * as childProcess from 'child_process';
+import cp from 'child_process';
+import util from 'util';
+
+const exec = util.promisify(cp.exec);
 
 export const run = async (command: string, cwd: string = __dirname) => {
-  return await new Promise((resolve, reject) => {
-    childProcess.exec(command, { cwd }, (error, stdout, stderr) => {
-      if (error) {
-        reject(error);
-      }
+  const { stdout, stderr } = await exec(command, { cwd });
 
-      if (process.env.VERBOSE) {
-        stdout && console.debug('[stdout]:', stdout);
-        stderr && console.debug('[stderr]:', stderr);
-      }
-
-      resolve(stdout);
-    });
-  });
+  if (process.env.VERBOSE) {
+    stdout && console.debug('[stdout]:', stdout);
+    stderr && console.debug('[stderr]:', stderr);
+  }
 };

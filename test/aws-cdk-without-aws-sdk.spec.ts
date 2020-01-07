@@ -2,10 +2,13 @@ import { expect } from 'chai';
 import * as fs from 'fs';
 import { beforeEach, describe, it } from 'mocha';
 import * as path from 'path';
+import util from 'util';
 import * as webpack from 'webpack';
 
 import { run } from '$/helpers/run';
 import * as Types from '$/types';
+
+const stat = util.promisify(fs.stat);
 
 const exampleProject = 'aws-cdk-without-aws-sdk';
 describe(exampleProject, async () => {
@@ -27,15 +30,7 @@ describe(exampleProject, async () => {
 
     await run('npm run build', directory);
 
-    await new Promise((resolve, reject) => {
-      fs.stat(path.resolve(directory, '.webpack'), (error, stats) => {
-        if (error) {
-          reject(error);
-        }
-
-        resolve(stats);
-      });
-    });
+    await stat(path.resolve(directory, '.webpack'));
 
     const { dependencies } = await import(`${config.output.path}/package.json`);
 

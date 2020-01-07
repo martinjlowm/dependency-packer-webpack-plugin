@@ -1,14 +1,15 @@
-import * as childProcess from 'child_process';
+import cp from 'child_process';
 import fastJSONStringify = require('fast-json-stringify');
 import * as fs from 'fs';
 import Module = require('module');
 import * as path from 'path';
 import semver = require('semver');
+import util from 'util';
 
 import { Tapable } from 'tapable';
 import * as Webpack from 'webpack';
 
-const builtinModules = Module.builtinModules || require('./builtin-modules').modules;
+const builtinModules = Module.builtinModules || require('./builtin-modules').modules as string[];
 const stringify = fastJSONStringify({
   title: 'package.json',
   type: 'object',
@@ -26,15 +27,23 @@ const stringify = fastJSONStringify({
     },
   },
 });
+const stat = util.promisify(fs.stat);
+const writeFile = util.promisify(fs.writeFile);
+const exec = util.promisify(cp.exec);
 
-
-const findPackageJSON = dirPath => {
-  const files = fs.readdirSync(dirPath);
-  if (files.some(file => file === 'package.json')) {
-    return require(`${dirPath}/package.json`);
-  } else {
-    return findPackageJSON(path.resolve(`${dirPath}/..`));
+const findPackageJSONFiles = <T extends { dependencies: Record<string, string> }>(dirPath: string, files: T[] = []) => {
+  const { name } = path.parse(dirPath);
+  if (!name) {
+    return files;
   }
+
+  if (fs.readdirSync(dirPath).some(file => file === 'package.json')) {
+    files.push(require(`${dirPath}/package.json`));
+  }
+
+  findPackageJSONFiles(path.resolve(`${dirPath}/..`), files);
+
+  return files;
 };
 
 const getEntryPoints = (module, entryPoints = new Set([]), visitedFiles = {}) => {
@@ -55,11 +64,9 @@ const getEntryPoints = (module, entryPoints = new Set([]), visitedFiles = {}) =>
   return entryPoints;
 };
 
-interface WebpackModule extends Webpack.Module {
-  context: string;
-  issuer: WebpackModule;
-  rawRequest?: string;
-  request: string;
+export interface Options {
+  blacklist?: Array<string | RegExp>;
+  packageManager?: 'npm' | 'yarn' | 'pnpm';
 }
 
 export class DependencyPackerPlugin implements Tapable.Plugin {
@@ -75,13 +82,13 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
   dependencies: { [entryName: string]: { [packageName: string]: string } } = {};
   run: boolean;
 
-  constructor(options) {
+  constructor(options: Options) {
     this.cwd = process.cwd();
     this.packageManager = options.packageManager || 'npm';
     this.blacklist = options.blacklist || [];
   }
 
-  private onBeforeRun = async (compiler) => {
+  private onBeforeRun = async (compiler: Webpack.Compiler) => {
     this.run = compiler.outputFileSystem.constructor.name === 'NodeOutputFileSystem';
     if (!this.run) {
       console.info(
@@ -91,7 +98,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     }
   }
 
-  private onCompilationFinishModules = (modules) => {
+  private onCompilationFinishModules = <T extends Webpack.compilation.Module & { rawRequest?: string; request?: string }>(modules: T[]) => {
     if (!this.run) {
       return;
     }
@@ -100,76 +107,72 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
 
     dependentModules.forEach(mod => {
       const issuer = mod.issuer;
-      if (issuer) {
-        const { name, dependencies = {} } = findPackageJSON(mod.issuer.context);
 
+      if (issuer) {
         if (!builtinModules.find(builtInModule => builtInModule === mod.request)) {
-          const entryPoints = getEntryPoints(mod);
+          const entryPoints = Array.from(getEntryPoints(mod));
 
           let moduleName = mod.request;
-          while (moduleName && !dependencies[moduleName]) {
+
+          const packageJSONFiles = findPackageJSONFiles(mod.issuer.context);
+
+          while (moduleName && packageJSONFiles.every(({ dependencies = {} }) => {
+            return !dependencies[moduleName];
+          })) {
             moduleName = moduleName.split('/').slice(0, -1).join('/');
           }
 
-          if (!dependencies[moduleName]) {
-            console.warn(`[${this.name}] » ${mod.request} was requested, but is not listed in dependencies! Skipping...`);
-            return;
+          moduleName = moduleName || mod.request;
+
+          for (const { dependencies = {} } of packageJSONFiles) {
+            if (this.blacklist.some(blacklisted => !!moduleName.match(blacklisted))) {
+              console.info(`[${this.name}] » ${moduleName} (${mod.request}) is blacklisted. Skipping...`);
+              return;
+            }
+
+            entryPoints.forEach(entryPoint => {
+              this.dependencies[entryPoint] = this.dependencies[entryPoint] || {};
+              this.dependencies[entryPoint][moduleName] = dependencies[moduleName];
+            });
+
+            break;
           }
 
-          if (this.blacklist.some(blacklisted => !!moduleName.match(blacklisted))) {
-            console.info(`[${this.name}] » ${moduleName} (${mod.request}) is blacklisted. Skipping...`);
-            return;
+          if (entryPoints.every(entryPoint => {
+            const dependencies = this.dependencies[entryPoint] || {};
+            return !dependencies[moduleName];
+          })) {
+            console.warn(`[${this.name}] » ${mod.request} was requested, but (${moduleName}) is not listed in dependencies! Skipping...`);
           }
-
-          entryPoints.forEach(entryPoint => {
-            this.dependencies[entryPoint] = this.dependencies[entryPoint] || {};
-            this.dependencies[entryPoint][moduleName] = dependencies[moduleName];
-          });
         }
       }
     });
   }
 
-  private onDone = async () => {
-    if (!this.run) {
+  private onDone = async (stats: Webpack.compiler.Stats) => {
+    if (!this.run || stats.compilation.errors.length) {
       return;
     }
 
     let dependencies = {};
     const packaged = Object.keys(this.entries).map(async entryName => {
-      const entryOutput = this.entries[entryName];
-
-      await new Promise((resolve, reject) => fs.stat(this.outputDirectory, (error, stats) => {
-        if (error) {
-          reject(error);
-        }
-
-        resolve(stats);
-      }));
+      await stat(this.outputDirectory);
 
       dependencies = { ...dependencies, ...(this.dependencies[this.entries[entryName]] || {}), };
       const peerDependenciesInstallations = Object.keys(dependencies).map(async pkg => {
         const [, version] = dependencies[pkg].match(/^(?:\^|~)?(.+)/);
 
         if (semver.valid(version)) {
-          const result = await new Promise<string>((resolve, reject) => {
-            childProcess.exec(`${this.packageManager} info ${pkg}@${version} peerDependencies --json`, {
-              cwd: this.outputDirectory
-            }, (error, stdout) => {
-              if (error) {
-                reject(error);
-              }
-
-              resolve(stdout);
-            });
+          const { stdout: result } = await exec(`${this.packageManager} info ${pkg}@${version} peerDependencies --json`, {
+            cwd: this.outputDirectory,
           });
 
-          let peerDependencies;
+          let peerDependencies: Record<string, string> | {} | undefined;
           try {
-            let type;
+            let type: string | undefined;
             ({ type, ...peerDependencies } = JSON.parse(result));
             if (type) {
-              peerDependencies = peerDependencies.data;
+              peerDependencies = (peerDependencies as { data: typeof peerDependencies }).data;
             }
           } catch (_) { }
 
@@ -187,36 +190,15 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
         dependencies,
       };
 
-      await new Promise((resolve, reject) => {
-        fs.writeFile(
-          `${this.outputDirectory}/package.json`, stringify(entryPackage),
-          (error) => {
-            if (error) {
-              reject(error);
-            }
-
-            resolve();
-          });
-      })
+      await writeFile(`${this.outputDirectory}/package.json`, stringify(entryPackage));
 
       console.info(
         `[${this.name}] ` +
           `» Installing packages for \`${Object.keys(this.entries).join(', ')}'...`,
       );
 
-
-      await new Promise((resolve, reject) => {
-        childProcess.exec(
-          `${this.packageManager} install`, {
-            cwd: path.resolve(this.outputDirectory),
-          },
-          (error) => {
-            if (error) {
-              reject(error);
-            }
-
-            resolve();
-          });
+      await exec(`${this.packageManager} install`, {
+        cwd: path.resolve(this.outputDirectory),
       });
 
       console.info(
