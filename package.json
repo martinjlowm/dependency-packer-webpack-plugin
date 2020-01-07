@@ -15,7 +15,7 @@
   "version": "1.1.0",
   "main": "dist/plugin.js",
   "scripts": {
-    "build": "NODE_ENV=production tsc --declaration",
+    "build": "NODE_ENV=production tsc --project tsconfig.publish.json",
     "postpublish": "rm -rf README.md dist/",
     "prepublishOnly": "npm run build && pandoc README.org -t markdown | sed -E 's/^\\[<([^>]+)>\\]\\(([^\\)]+)\\)$/[![Build Status](\\1)](\\2)/g' > README.md",
     "test": "mocha -r ts-node/register -r tsconfig-paths/register test/**/*.spec.ts",
