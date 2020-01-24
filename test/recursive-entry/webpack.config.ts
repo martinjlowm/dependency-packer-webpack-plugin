@@ -54,6 +54,7 @@ export default Object.keys(entries).map(entry => {
     ...baseConfig,
     entry: {
       [entry]: entries[entry],
+      [`${entry}-multi`]: ['./src/helpers/circular.ts', entries[entry]],
     },
     output: {
       ...baseConfig.output,

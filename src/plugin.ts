@@ -50,7 +50,7 @@ const getEntryPoints = (module, entryPoints = new Set([]), visitedFiles = {}) =>
   visitedFiles[module.userRequest] = true;
 
   module.reasons.forEach(reason => {
-    if (reason.module) {
+    if (reason.module && reason.module.constructor.name !== 'MultiModule') {
       if (visitedFiles[reason.module.userRequest]) {
         return;
       }
@@ -77,7 +77,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
   name: string = 'DependencyPackerPlugin';
 
   projectName: string;
-  entries: string | string[] | Webpack.Entry | Webpack.EntryFunc;
+  entries: ReturnType<Webpack.EntryFunc>;
   outputDirectory: string;
   dependencies: { [entryName: string]: { [packageName: string]: string } } = {};
   run: boolean;
@@ -161,11 +161,31 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
       return;
     }
 
+    let webpackEntries: Webpack.Entry;
+    let entries = await this.entries;
+
+    if (Array.isArray(entries)) {
+      webpackEntries = { output: entries };
+    } else if (typeof entries === 'string') {
+      webpackEntries = { output: entries };
+    } else {
+      webpackEntries = entries;
+    }
+
     let dependencies = {};
-    const packaged = Object.keys(this.entries).map(async entryName => {
+    const packaged = (Object.keys(webpackEntries) as Array<keyof Webpack.Entry>).map(async entryName => {
       await stat(this.outputDirectory);
 
-      dependencies = { ...dependencies, ...(this.dependencies[this.entries[entryName]] || {}), };
+      const paths = webpackEntries[entryName];
+
+      const collectedEntryDependencies = (Array.isArray(paths) ? paths : [paths]).reduce((acc, path) => {
+        return {
+          ...acc,
+          ...(this.dependencies[path] || {})
+        };
+      }, {});
+
+      dependencies = { ...dependencies, ...collectedEntryDependencies };
       const peerDependenciesInstallations = Object.keys(dependencies).map(async pkg => {
         const [, version] = dependencies[pkg].match(/^(?:\^|~)?(.+)/);
 
@@ -201,7 +221,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
 
       console.info(
         `[${this.name}] ` +
-          `» Installing packages for \`${Object.keys(this.entries).join(', ')}'...`,
+          `» Installing packages for \`${Object.keys(webpackEntries).join(', ')}'...`,
       );
 
       await exec(`${this.packageManager} install`, {
@@ -222,18 +242,12 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
   }
 
   apply(compiler: Webpack.Compiler) {
-    if (Array.isArray(compiler.options.entry) &&
-      compiler.options.entry.length &&
-      compiler.options.entry[0] === 'string') {
-      console.info(
-        `[${this.name}] ` +
-        `» The behavior of an entry as a string array has not yet been defined.`,
-      );
-      return;
-    } else if (typeof compiler.options.entry === 'string') {
-      this.entries = { output: compiler.options.entry };
+    let entry = compiler.options.entry;
+
+    if (typeof entry === 'function') {
+      this.entries = entry();
     } else {
-      this.entries = compiler.options.entry;
+      this.entries = entry;
     }
 
     this.outputDirectory = compiler.options.output.path;
