@@ -23,7 +23,6 @@
     "test:verbose": "VERBOSE=true npm run test"
   },
   "dependencies": {
-    "fast-json-stringify": "^1.11.3",
     "semver": "^5.6.0"
   },
   "devDependencies": {

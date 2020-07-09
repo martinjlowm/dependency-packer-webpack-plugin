@@ -1,32 +1,14 @@
 import cp = require('child_process');
-import fastJSONStringify = require('fast-json-stringify');
 import fs = require('fs');
 import Module = require('module');
 import path = require('path');
 import semver = require('semver');
-import util from 'util';
+import util = require('util');
 
 import { Tapable } from 'tapable';
 import * as Webpack from 'webpack';
 
 const builtinModules = Module.builtinModules || require('./builtin-modules').modules as string[];
-const stringify = fastJSONStringify({
-  title: 'package.json',
-  type: 'object',
-  properties: {
-    name: {
-      type: 'string',
-    },
-    dependencies: {
-      type: 'object',
-      patternProperties: {
-        '^(?:@([^/]+?)[/])?([^/]+?)$': {
-          type: 'string',
-        }
-      }
-    },
-  },
-});
 const stat = util.promisify(fs.stat);
 const writeFile = util.promisify(fs.writeFile);
 const exec = util.promisify(cp.exec);
@@ -98,7 +80,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     }
   }
 
-  private onCompilationFinishModules = <T extends Webpack.compilation.Module & { rawRequest?: string; request?: string }>(modules: T[]) => {
+  private onCompilationFinishModules = <T extends Webpack.compilation.Module & { rawRequest?: string; request?: string; issuer: any }>(modules: T[]) => {
     if (!this.run) {
       return;
     }
@@ -217,7 +199,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
         dependencies,
       };
 
-      await writeFile(`${this.outputDirectory}/package.json`, stringify(entryPackage));
+      await writeFile(`${this.outputDirectory}/package.json`, JSON.stringify(entryPackage));
 
       console.info(
         `[${this.name}] ` +
