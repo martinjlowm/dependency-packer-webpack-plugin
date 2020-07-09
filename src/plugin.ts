@@ -1,8 +1,8 @@
-import cp from 'child_process';
+import cp = require('child_process');
 import fastJSONStringify = require('fast-json-stringify');
-import * as fs from 'fs';
+import fs = require('fs');
 import Module = require('module');
-import * as path from 'path';
+import path = require('path');
 import semver = require('semver');
 import util from 'util';
 
@@ -224,9 +224,24 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
           `» Installing packages for \`${Object.keys(webpackEntries).join(', ')}'...`,
       );
 
-      await exec(`${this.packageManager} install`, {
+      const cacheDirectory = path.join(this.outputDirectory, '.cache');
+      const cacheOption = (() => {
+        switch (this.packageManager) {
+          case 'yarn':
+            return '--cache-folder';
+          case 'pnpm':
+            return '--store';
+          case 'npm':
+          default:
+            return '--cache';
+        }
+      })();
+
+      await exec(`${this.packageManager} install ${cacheOption} ${cacheDirectory}`, {
         cwd: path.resolve(this.outputDirectory),
       });
+
+      await exec(`rm -r ${cacheDirectory}`);
 
       console.info(
         `[${this.name}] ` +
