@@ -1,0 +1,35 @@
+name: Continuous Integration
+
+on:
+  push:
+    paths-ignore:
+      - '.dir-locals.el'
+      - '.gitignore'
+
+jobs:
+  ci:
+    name: 'Build, lint, type check and test'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Use Node.js 14.x LTS
+        uses: actions/setup-node@v1
+        with:
+          node-version: '14.x'
+          registry-url: https://npm.pkg.github.com
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 'Install'
+        run: |
+          npm i
+
+      - name: 'Build'
+        run: |
+          npm run build
+
+      - name: 'Test'
+        run: |
+          npm run test
