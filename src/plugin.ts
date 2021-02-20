@@ -223,7 +223,9 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
         cwd: path.resolve(this.outputDirectory),
       });
 
-      await exec(`rm -r ${cacheDirectory}`);
+      try {
+        await exec(`rm -r ${cacheDirectory}`);
+      } catch (error) {}
 
       console.info(
         `[${this.name}] ` +
