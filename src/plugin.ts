@@ -5,7 +5,6 @@ import path = require('path');
 import semver = require('semver');
 import util = require('util');
 
-import { Tapable } from 'tapable';
 import * as Webpack from 'webpack';
 
 const builtinModules = Module.builtinModules || require('./builtin-modules').modules as string[];
@@ -28,30 +27,12 @@ const findPackageJSONFiles = <T extends { dependencies: Record<string, string> }
   return files;
 };
 
-const getEntryPoints = (module, entryPoints = new Set([]), visitedFiles = {}) => {
-  visitedFiles[module.userRequest] = true;
-
-  module.reasons.forEach(reason => {
-    if (reason.module && reason.module.constructor.name !== 'MultiModule') {
-      if (visitedFiles[reason.module.userRequest]) {
-        return;
-      }
-
-      getEntryPoints(reason.module, entryPoints, visitedFiles);
-    } else {
-      entryPoints.add(module.rawRequest);
-    }
-  });
-
-  return entryPoints;
-};
-
 export interface Options {
   blacklist?: Array<string | RegExp>;
   packageManager?: 'npm' | 'yarn' | 'pnpm';
 }
 
-export class DependencyPackerPlugin implements Tapable.Plugin {
+export class DependencyPackerPlugin {
 
   cwd: string;
   packageManager: string;
@@ -59,7 +40,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
   name: string = 'DependencyPackerPlugin';
 
   projectName: string;
-  entries: ReturnType<Webpack.EntryFunc>;
+  entries: Webpack.EntryNormalized;
   outputDirectory: string;
   dependencies: { [entryName: string]: { [packageName: string]: string } } = {};
   run: boolean;
@@ -71,7 +52,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
   }
 
   private onBeforeRun = async (compiler: Webpack.Compiler) => {
-    this.run = compiler.outputFileSystem.constructor.name === 'NodeOutputFileSystem';
+    this.run = true;
     if (!this.run) {
       console.info(
         `[${this.name}] ` +
@@ -80,85 +61,76 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
     }
   }
 
-  private onCompilationFinishModules = <T extends Webpack.compilation.Module & { rawRequest?: string; request?: string; issuer: any }>(modules: T[]) => {
+  private onCompilationFinishModules = <T extends Webpack.NormalModule>(compilation: Webpack.Compilation, modules: T[]) => {
     if (!this.run) {
       return;
     }
 
-    const dependentModules = modules.filter(mod => !mod.rawRequest && mod.request);
+    const dependentModules = Array.from(modules).filter(mod => !mod.rawRequest && mod.request);
 
     dependentModules.forEach(mod => {
-      const issuer = mod.issuer;
+      const incomingConnections = compilation.moduleGraph.getIncomingConnections(mod);
 
-      if (issuer) {
-        if (!builtinModules.find(builtInModule => builtInModule === mod.request)) {
-          const entryPoints = Array.from(getEntryPoints(mod));
+      if (!builtinModules.find(builtInModule => builtInModule === mod.request)) {
+        const entryPoints = Array.from(new Set(Array.from(incomingConnections).map((connection) => connection.originModule).filter((originModule): originModule is Webpack.NormalModule => {
+          return 'rawRequest' in originModule;
+        }).map((originModule) => originModule.rawRequest)));
 
-          let moduleName = mod.request;
+        let moduleName = mod.request;
 
-          const packageJSONFiles = findPackageJSONFiles(mod.issuer.context);
+        const packageJSONFiles = findPackageJSONFiles(compilation.moduleGraph.getIssuer(mod).context);
 
-          let nextModuleName = moduleName;
+        let nextModuleName = moduleName;
 
-          while (nextModuleName && packageJSONFiles.every(({ dependencies = {} }) => {
-            return !dependencies[moduleName];
-          })) {
-            nextModuleName = moduleName.split('/').slice(0, -1).join('/');
-            moduleName = nextModuleName || moduleName;
+        while (nextModuleName && packageJSONFiles.every(({ dependencies = {} }) => {
+          return !dependencies[moduleName];
+        })) {
+          nextModuleName = moduleName.split('/').slice(0, -1).join('/');
+          moduleName = nextModuleName || moduleName;
+        }
+
+        moduleName = moduleName || mod.request;
+
+        for (const { dependencies = {} } of packageJSONFiles) {
+          if (this.blacklist.some(blacklisted => !!moduleName.match(blacklisted))) {
+            console.info(`[${this.name}] » ${moduleName} (${mod.request}) is blacklisted. Skipping...`);
+            return;
           }
 
-          moduleName = moduleName || mod.request;
+          const version = dependencies[moduleName];
 
-          for (const { dependencies = {} } of packageJSONFiles) {
-            if (this.blacklist.some(blacklisted => !!moduleName.match(blacklisted))) {
-              console.info(`[${this.name}] » ${moduleName} (${mod.request}) is blacklisted. Skipping...`);
-              return;
-            }
+          if (version) {
+            entryPoints.forEach(entryPoint => {
+              this.dependencies[entryPoint] = this.dependencies[entryPoint] || {};
+              this.dependencies[entryPoint][moduleName] = version;
+            });
 
-            const version = dependencies[moduleName];
-
-            if (version) {
-              entryPoints.forEach(entryPoint => {
-                this.dependencies[entryPoint] = this.dependencies[entryPoint] || {};
-                this.dependencies[entryPoint][moduleName] = version;
-              });
-
-              break;
-            }
+            break;
           }
+        }
 
-          if (entryPoints.every(entryPoint => {
-            const dependencies = this.dependencies[entryPoint] || {};
-            return !dependencies[moduleName];
-          })) {
-            console.warn(`[${this.name}] » ${mod.request} was requested, but (${moduleName}) is not listed in dependencies! Skipping...`);
-          }
+        if (entryPoints.every(entryPoint => {
+          const dependencies = this.dependencies[entryPoint] || {};
+          return !dependencies[moduleName];
+        })) {
+          console.warn(`[${this.name}] » ${mod.request} was requested, but (${moduleName}) is not listed in dependencies! Skipping...`);
         }
       }
     });
   }
 
-  private onDone = async (stats: Webpack.compiler.Stats) => {
+  private onDone = async (stats: Webpack.Stats) => {
     if (!this.run || stats.compilation.errors.length) {
       return;
     }
 
-    let webpackEntries: Webpack.Entry;
-    let entries = await this.entries;
-
-    if (Array.isArray(entries)) {
-      webpackEntries = { output: entries };
-    } else if (typeof entries === 'string') {
-      webpackEntries = { output: entries };
-    } else {
-      webpackEntries = entries;
-    }
+    const entries = typeof this.entries === 'function' ? await this.entries() : this.entries;
 
     let dependencies = {};
-    const packaged = (Object.keys(webpackEntries) as Array<keyof Webpack.Entry>).map(async entryName => {
+    const packaged = (Object.keys(entries) as Array<keyof Webpack.Entry>).map(async entryName => {
       await stat(this.outputDirectory);
 
-      const paths = webpackEntries[entryName];
+      const paths = entries[entryName].import;
 
       const collectedEntryDependencies = (Array.isArray(paths) ? paths : [paths]).reduce((acc, path) => {
         return {
@@ -203,7 +175,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
 
       console.info(
         `[${this.name}] ` +
-          `» Installing packages for \`${Object.keys(webpackEntries).join(', ')}'...`,
+          `» Installing packages for \`${Object.keys(entries).join(', ')}'...`,
       );
 
       const cacheDirectory = path.join(this.outputDirectory, '.cache');
@@ -225,11 +197,11 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
 
       try {
         await exec(`rm -r ${cacheDirectory}`);
-      } catch (error) {}
+      } catch (error) { }
 
       console.info(
         `[${this.name}] ` +
-          '» Finished installing packages.',
+        '» Finished installing packages.',
       );
     } catch (error) {
       console.error(
@@ -241,13 +213,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
   }
 
   apply(compiler: Webpack.Compiler) {
-    let entry = compiler.options.entry;
-
-    if (typeof entry === 'function') {
-      this.entries = entry();
-    } else {
-      this.entries = entry;
-    }
+    this.entries = compiler.options.entry;
 
     this.outputDirectory = compiler.options.output.path;
 
@@ -258,7 +224,7 @@ export class DependencyPackerPlugin implements Tapable.Plugin {
 
     compiler.hooks.compilation.tap(this.name, (compilation) => {
       compilation.hooks.finishModules.tap(
-        this.name, this.onCompilationFinishModules);
+        this.name, <T extends Webpack.NormalModule>(modules: T[]) => this.onCompilationFinishModules(compilation, modules));
     });
 
     compiler.hooks.done.tapPromise(this.name, this.onDone);
