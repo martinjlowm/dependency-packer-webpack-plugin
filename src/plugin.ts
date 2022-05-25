@@ -40,8 +40,6 @@ export class DependencyPackerPlugin {
   name: string = 'DependencyPackerPlugin';
 
   projectName: string;
-  entries: Webpack.EntryNormalized;
-  outputDirectory: string;
   dependencies: { [entryName: string]: { [packageName: string]: string } } = {};
   run: boolean;
 
@@ -52,7 +50,9 @@ export class DependencyPackerPlugin {
   }
 
   private onBeforeRun = async (compiler: Webpack.Compiler) => {
-    this.run = true;
+    // We assume this assignment is NodeOutputFileSystem, it was made anonymous
+    // with Webpack 5
+    this.run = compiler.outputFileSystem.constructor.name === 'Object';
     if (!this.run) {
       console.info(
         `[${this.name}] ` +
@@ -68,14 +68,10 @@ export class DependencyPackerPlugin {
 
     const dependentModules = Array.from(modules).filter(mod => !mod.rawRequest && mod.request);
 
+    const entryPoints = Object.keys(compilation.compiler.options.entry);
+
     dependentModules.forEach(mod => {
-      const incomingConnections = compilation.moduleGraph.getIncomingConnections(mod);
-
       if (!builtinModules.find(builtInModule => builtInModule === mod.request)) {
-        const entryPoints = Array.from(new Set(Array.from(incomingConnections).map((connection) => connection.originModule).filter((originModule): originModule is Webpack.NormalModule => {
-          return 'rawRequest' in originModule;
-        }).map((originModule) => originModule.rawRequest)));
-
         let moduleName = mod.request;
 
         const packageJSONFiles = findPackageJSONFiles(compilation.moduleGraph.getIssuer(mod).context);
@@ -124,28 +120,20 @@ export class DependencyPackerPlugin {
       return;
     }
 
-    const entries = typeof this.entries === 'function' ? await this.entries() : this.entries;
+    const entries = stats.compilation.compiler.options.entry;
+    const outputDirectory = stats.compilation.compiler.options.output.path;
 
     let dependencies = {};
     const packaged = (Object.keys(entries) as Array<keyof Webpack.Entry>).map(async entryName => {
-      await stat(this.outputDirectory);
+      await stat(outputDirectory);
 
-      const paths = entries[entryName].import;
-
-      const collectedEntryDependencies = (Array.isArray(paths) ? paths : [paths]).reduce((acc, path) => {
-        return {
-          ...acc,
-          ...(this.dependencies[path] || {})
-        };
-      }, {});
-
-      dependencies = { ...dependencies, ...collectedEntryDependencies };
+      dependencies = this.dependencies[entryName];
       const peerDependenciesInstallations = Object.keys(dependencies).map(async pkg => {
         const [, version] = dependencies[pkg].match(/^(?:\^|~)?(.+)/);
 
         if (semver.valid(version)) {
           const { stdout: result } = await exec(`${this.packageManager} info ${pkg}@${version} peerDependencies --json`, {
-            cwd: this.outputDirectory,
+            cwd: outputDirectory,
           });
 
           let peerDependencies: Record<string, string> | {} | undefined;
@@ -171,14 +159,14 @@ export class DependencyPackerPlugin {
         dependencies,
       };
 
-      await writeFile(`${this.outputDirectory}/package.json`, JSON.stringify(entryPackage));
+      await writeFile(`${outputDirectory}/package.json`, JSON.stringify(entryPackage));
 
       console.info(
         `[${this.name}] ` +
           `» Installing packages for \`${Object.keys(entries).join(', ')}'...`,
       );
 
-      const cacheDirectory = path.join(this.outputDirectory, '.cache');
+      const cacheDirectory = path.join(outputDirectory, '.cache');
       const cacheOption = (() => {
         switch (this.packageManager) {
           case 'yarn':
@@ -192,7 +180,7 @@ export class DependencyPackerPlugin {
       })();
 
       await exec(`${this.packageManager} install ${cacheOption} ${cacheDirectory}`, {
-        cwd: path.resolve(this.outputDirectory),
+        cwd: path.resolve(outputDirectory),
       });
 
       try {
@@ -213,10 +201,6 @@ export class DependencyPackerPlugin {
   }
 
   apply(compiler: Webpack.Compiler) {
-    this.entries = compiler.options.entry;
-
-    this.outputDirectory = compiler.options.output.path;
-
     ({ name: this.projectName } = require(`${this.cwd}/package.json`));
 
     // Hooks
