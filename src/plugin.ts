@@ -127,7 +127,7 @@ export class DependencyPackerPlugin {
     const packaged = (Object.keys(entries) as Array<keyof Webpack.Entry>).map(async entryName => {
       await stat(outputDirectory);
 
-      dependencies = this.dependencies[entryName];
+      dependencies = this.dependencies[entryName] || {};
       const peerDependenciesInstallations = Object.keys(dependencies).map(async pkg => {
         const [, version] = dependencies[pkg].match(/^(?:\^|~)?(.+)/);
 
