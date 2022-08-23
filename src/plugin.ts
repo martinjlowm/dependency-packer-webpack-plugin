@@ -71,7 +71,7 @@ export class DependencyPackerPlugin {
     const entryPoints = Object.keys(compilation.compiler.options.entry);
 
     dependentModules.forEach(mod => {
-      if (!builtinModules.find(builtInModule => builtInModule === mod.request)) {
+      if (!builtinModules.find(builtInModule => builtInModule === mod.request || mod.request.startsWith('node:'))) {
         let moduleName = mod.request;
 
         const packageJSONFiles = findPackageJSONFiles(compilation.moduleGraph.getIssuer(mod).context);
